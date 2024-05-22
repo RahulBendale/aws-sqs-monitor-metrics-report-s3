@@ -1,0 +1,37 @@
+name: DeploySqsMonitoring
+
+on:
+  push:
+    branches: [master]
+env:
+  TARGET: nonprod
+  RESOURCE_NAME: companyname_projectname_here
+  AWS_REGION: region_name_here
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Configure AWS Credentials from companyname_here account
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: actions/setup-node@v2
+        with:
+          node-version: '20.x'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+      - name: Install Serverless Framework
+        run: npm install -g serverless
+
+      - name: Serverless AWS Authentication
+        run: sls config credentials --provider aws --key ${{ secrets.ACCESS_KEY_ID }} --secret ${{ secrets.SECRET_ACCESS_KEY }}
+      - name: build sqs cron service
+        working-directory: ./src/sqs-service-cron
+        run: |
+          npm install
+          STAGE=${{ env.TARGET }} sts deploy
