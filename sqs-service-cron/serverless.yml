@@ -1,0 +1,43 @@
+service: companyname-sqs-monitoring
+
+frameworkVersion: '3'
+
+custom:
+  serverlessSsmFetch:
+  MONITORING_BUCKET: /companyname/${env:STAGE}/s3/monitoring_bucket/name
+  IAM_ROLE: /companyname/${env:STAGE}/iam/clustercron_lambda/arn
+
+provider:
+  name: aws
+  stage: ${env:STAGE}
+  region: aws-region-here
+  runtime: python3.8
+  timeout: 900
+  deploymentBucket:
+    name: ${ssm:/companyname/${env:STAGE}/s3/artifacts_bucket/name}
+    serverSideEncryption: AES256
+  deploymentPrefix: serverless
+  environment:
+    TARGET_CLUSTER: cluster_name_here
+    MONITORING_BUCKET: ${ssm:/companyname/${env:STAGE}/s3/monitoring_bucket/name}
+    ECS_SNS_TOPIC: ${ssm:/companyname/${env:STAGE}/sns/topic/arn}
+    # RDS_INSTANCE_IDENTIFIER: ${ssm:/companyname/${env:STAGE}/rds/rds/instance/identifier}
+
+    iam:
+      role: $${ssm:/companyname/${env:STAGE}/iam/clustercron_lambda_role/arn}
+
+
+functions:
+  sqsCron:
+    handler: handler.run
+    events:
+      - schedule: rate(5 minutes)
+  sqsDTAnalysis:
+    handler: trigger.run
+    events:
+      - s3:
+          bucket: ${ssm:/companyname/${env:STAGE}/s3/monitoring_bucket/name}
+          existing: true
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: sqs
